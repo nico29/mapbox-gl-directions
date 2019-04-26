@@ -1,8 +1,9 @@
 {
-  "name": "@mapbox/mapbox-gl-directions",
-  "version": "4.0.0",
+  "name": "@nico29/mapbox-gl-directions",
+  "version": "5.0.0",
   "description": "A mapboxgl plugin for the Mapbox Directions API",
-  "main": "./src/index.js",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "browserify": {
     "transform": [
       "babelify",
@@ -10,15 +11,13 @@
     ]
   },
   "peerDependencies": {
-    "mapbox-gl": "^0.41.0"
+    "mapbox-gl": "^0.54.0"
   },
   "scripts": {
-    "prepublish": "npm run build",
     "start": "NODE_ENV=development budo example/index.js:example/bundle.js --live",
     "build": "NODE_ENV=production mkdir -p dist && browserify -s MapboxDirections src/index.js > dist/mapbox-gl-directions.js && cp src/mapbox-gl-directions.css dist",
     "test": "NODE_ENV=test npm run lint && browserify test/index.js | smokestack -b firefox | tap-status",
-    "docs": "documentation build src/directions.js --shallow --format=md > API.md",
-    "lint": "eslint --no-eslintrc -c .eslintrc src"
+    "docs": "documentation build src/directions.js --shallow --format=md > API.md"
   },
   "repository": {
     "type": "git",
@@ -37,37 +36,28 @@
   },
   "homepage": "https://github.com/mapbox/mapbox-gl-directions#readme",
   "devDependencies": {
-    "babel-core": "^6.9.1",
-    "babel-eslint": "^6.0.5",
-    "babel-plugin-object-assign": "^1.2.1",
-    "brfs": "^1.4.1",
-    "browserify": "^13.0.1",
-    "budo": "^8.3.0",
-    "documentation": "^4.0.0-beta16",
-    "eslint": "^2.13.1",
-    "insert-css": "^2.0.0",
-    "json-loader": "0.5.4",
-    "lodash.once": "^4.0.0",
-    "mapbox-gl": "^0.41.0",
-    "smokestack": "^3.6.0",
-    "tap-status": "^1.0.1",
-    "tape": "^4.6.0",
-    "transform-loader": "0.2.3",
-    "webpack": "1.13.1",
-    "webworkify-webpack": "1.1.7"
+    "@types/lodash.debounce": "^4.0.6",
+    "@types/lodash.isequal": "^4.5.5",
+    "@types/lodash.merge": "^4.6.6",
+    "@types/lodash.template": "^4.4.6",
+    "@types/mapbox-gl": "^0.51.4",
+    "@types/mapbox__polyline": "^1.0.0",
+    "@types/xtend": "4.0.1",
+    "@typescript-eslint/eslint-plugin": "^1.7.0",
+    "eslint": "^5.16.0",
+    "eslint-config-prettier": "^4.2.0",
+    "prettier": "^1.17.0",
+    "typescript": "^3.4.5"
   },
   "dependencies": {
-    "babel-plugin-transform-inline-environment-variables": "^6.8.0",
-    "babel-preset-es2015": "^6.9.0",
-    "babelify": "^7.3.0",
-    "deep-assign": "^2.0.0",
-    "lodash.debounce": "^4.0.6",
-    "lodash.isequal": "^4.2.0",
-    "lodash.template": "^4.2.5",
-    "polyline": "^0.2.0",
-    "redux": "^3.5.2",
-    "redux-thunk": "^2.1.0",
-    "suggestions": "1.3.3",
+    "@mapbox/polyline": "^0.2.0",
+    "lodash.debounce": "^4.0.8",
+    "lodash.isequal": "^4.5.0",
+    "lodash.merge": "^4.6.1",
+    "lodash.template": "^4.4.0",
+    "redux": "^4.0.1",
+    "redux-thunk": "^2.3.0",
+    "suggestions": "1.5.0",
     "turf-extent": "^1.0.4",
     "xtend": "4.0.1"
   }
