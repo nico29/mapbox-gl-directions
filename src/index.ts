@@ -1,3 +1,3 @@
-import MapboxDirections from './directions';
+import MapboxDirections from "./directions";
 
 module.exports = MapboxDirections;
