@@ -1,20 +1,53 @@
-import { createStore, applyMiddleware, bindActionCreators } from "redux";
-import thunk from "redux-thunk";
 import { decode } from "@mapbox/polyline";
-import utils from "./utils";
-import rootReducer from "./reducers";
+import {
+  applyMiddleware,
+  bindActionCreators,
+  createStore,
+  Unsubscribe
+} from "redux";
+import thunk from "redux-thunk";
 
+import * as actions from "./actions";
+import Inputs from "./controls/inputs";
+import Instructions from "./controls/instructions";
+import directionsStyle from "./directions_style";
+import rootReducer from "./reducers";
+import utils from "./utils";
+import { Map, AnySourceData, Layer, GeoJSONSource, Point } from "mapbox-gl";
+
+// State object management via redux
+// Controls
 const storeWithMiddleware = applyMiddleware(thunk)(createStore);
 const store = storeWithMiddleware(rootReducer);
 
-// State object management via redux
-import * as actions from "./actions";
-import directionsStyle from "./directions_style";
-
-// Controls
-import Inputs from "./controls/inputs";
-import Instructions from "./controls/instructions";
-
+export interface IMapboxDirectionsOptions {
+  sttyles?: any[];
+  accessToken?: string;
+  api?: string;
+  interactive?: boolean;
+  profile?:
+    | "mapbox/driving-traffic"
+    | "mapbox/driving"
+    | "mapbox/walking"
+    | "mapbox/cycling";
+  alternatives?: boolean;
+  congestion?: boolean;
+  unit?: "imperial" | "metric";
+  compile?: () => void;
+  geocoder?: {
+    // TODO: type this
+    [key: string]: any;
+  };
+  controls?: {
+    inputs?: boolean;
+    instructions?: boolean;
+    profileSwitcher?: boolean;
+  };
+  zoom?: number;
+  placeholderOrigin?: string;
+  placeholderDestination?: string;
+  flyTo?: boolean;
+}
 /**
  * The Directions control
  * @class MapboxDirections
@@ -51,7 +84,19 @@ import Instructions from "./controls/instructions";
  * @return {MapboxDirections} `this`
  */
 export default class MapboxDirections {
-  constructor(options) {
+  public actions: any;
+  public onDragDown: () => void;
+  public onDragMove: (
+    event: MouseEvent & { lngLat: { lng: number; lat: number } }
+  ) => void;
+  public onDragUp: () => void;
+  public move: (event: MouseEvent & { point: any }) => void;
+  public onClick: (event: MouseEvent) => void;
+  private _map: Map | null;
+  private container: HTMLElement;
+  private storeUnsubscribe?: Unsubscribe;
+
+  constructor(public options: IMapboxDirectionsOptions) {
     this.actions = bindActionCreators(actions, store.dispatch);
     this.actions.setOptions(options || {});
     this.options = options || {};
@@ -63,7 +108,7 @@ export default class MapboxDirections {
     this.onClick = this._clickHandler().bind(this);
   }
 
-  onAdd(map) {
+  onAdd(map: Map) {
     this._map = map;
 
     const { controls } = store.getState();
@@ -106,8 +151,8 @@ export default class MapboxDirections {
    *
    * @returns {Control} `this`
    */
-  onRemove(map) {
-    this.container.parentNode.removeChild(this.container);
+  onRemove(map: Map) {
+    this.container.parentNode!.removeChild(this.container);
     this.removeRoutes();
     map.off("mousedown", this.onDragDown);
     map.off("mousemove", this.move);
@@ -150,23 +195,23 @@ export default class MapboxDirections {
     };
 
     // Add and set data theme layer/style
-    this._map.addSource("directions", geojson);
+    this._map!.addSource("directions", geojson as AnySourceData);
 
     // Add direction specific styles to the map
     if (styles && styles.length)
-      styles.forEach(style => this._map.addLayer(style));
+      styles.forEach(style => this._map!.addLayer(style));
     directionsStyle.forEach(style => {
       // only add the default style layer if a custom layer wasn't provided
-      if (!this._map.getLayer(style.id)) this._map.addLayer(style);
+      if (!this._map!.getLayer(style.id)) this._map!.addLayer(style as Layer);
     });
 
     if (interactive) {
-      this._map.on("mousedown", this.onDragDown);
-      this._map.on("mousemove", this.move);
-      this._map.on("click", this.onClick);
+      this._map!.on("mousedown", this.onDragDown);
+      this._map!.on("mousemove", this.move);
+      this._map!.on("click", this.onClick);
 
-      this._map.on("touchstart", this.move);
-      this._map.on("touchstart", this.onDragDown);
+      this._map!.on("touchstart", this.move);
+      this._map!.on("touchstart", this.onDragDown);
     }
   }
 
@@ -182,93 +227,104 @@ export default class MapboxDirections {
 
       const geojson = {
         type: "FeatureCollection",
-        features: [origin, destination, hoverMarker].filter(d => {
-          return d.geometry;
-        })
+        features: [origin, destination, hoverMarker].filter(
+          (d: { geometry?: string }) => {
+            return d.geometry;
+          }
+        )
       };
 
       if (directions.length) {
-        directions.forEach((feature, index) => {
-          const features = [];
+        directions.forEach(
+          (feature: { geometry: string; [key: string]: any }, index) => {
+            const features: any[] = [];
 
-          const decoded = decode(feature.geometry, 5).map(function(c) {
-            return c.reverse();
-          });
+            const decoded = decode(feature.geometry, 5).map(function(c) {
+              return c.reverse();
+            });
 
-          decoded.forEach(function(c, i) {
-            var previous = features[features.length - 1];
-            var congestion =
-              feature.legs[0].annotation &&
-              feature.legs[0].annotation.congestion &&
-              feature.legs[0].annotation.congestion[i - 1];
+            decoded.forEach(function(c, i) {
+              var previous = features[features.length - 1];
+              var congestion =
+                feature.legs[0].annotation &&
+                feature.legs[0].annotation.congestion &&
+                feature.legs[0].annotation.congestion[i - 1];
 
-            if (
-              previous &&
-              (!congestion || previous.properties.congestion === congestion)
-            ) {
-              previous.geometry.coordinates.push(c);
-            } else {
-              var segment = {
-                geometry: {
-                  type: "LineString",
-                  coordinates: []
-                },
-                properties: {
-                  "route-index": index,
-                  route: index === routeIndex ? "selected" : "alternate"
-                }
-              };
-
-              // New segment starts with previous segment's last coordinate.
-              if (previous)
-                segment.geometry.coordinates.push(
-                  previous.geometry.coordinates[
-                    previous.geometry.coordinates.length - 1
-                  ]
-                );
-
-              segment.geometry.coordinates.push(c);
-
-              if (congestion) {
-                segment.properties.congestion =
-                  feature.legs[0].annotation.congestion[i - 1];
-              }
-
-              features.push(segment);
-            }
-          });
-
-          geojson.features = geojson.features.concat(features);
-
-          if (index === routeIndex) {
-            // Collect any possible waypoints from steps
-            feature.legs[0].steps.forEach(d => {
-              if (d.maneuver.type === "waypoint") {
-                geojson.features.push({
-                  type: "Feature",
-                  geometry: d.maneuver.location,
+              if (
+                previous &&
+                (!congestion || previous.properties.congestion === congestion)
+              ) {
+                previous.geometry.coordinates.push(c);
+              } else {
+                var segment = {
+                  geometry: {
+                    type: "LineString",
+                    coordinates: [] as any[]
+                  },
                   properties: {
-                    id: "waypoint"
+                    "route-index": index,
+                    route: index === routeIndex ? "selected" : "alternate"
+                  } as {
+                    "route-index": number;
+                    route: "selected" | "alternate";
+                    congestion?: any;
                   }
-                });
+                };
+
+                // New segment starts with previous segment's last coordinate.
+                if (previous)
+                  segment.geometry.coordinates.push(
+                    previous.geometry.coordinates[
+                      previous.geometry.coordinates.length - 1
+                    ]
+                  );
+
+                segment.geometry.coordinates.push(c);
+
+                if (congestion) {
+                  segment.properties.congestion =
+                    feature.legs[0].annotation.congestion[i - 1];
+                }
+
+                features.push(segment);
               }
             });
+
+            geojson.features = geojson.features.concat(features);
+
+            if (index === routeIndex) {
+              // Collect any possible waypoints from steps
+              feature.legs[0].steps.forEach(d => {
+                if (d.maneuver.type === "waypoint") {
+                  geojson.features.push({
+                    type: "Feature",
+                    geometry: d.maneuver.location,
+                    properties: {
+                      id: "waypoint"
+                    }
+                  });
+                }
+              });
+            }
           }
-        });
+        );
       }
 
-      if (this._map.style && this._map.getSource("directions")) {
-        this._map.getSource("directions").setData(geojson);
+      // @ts-ignore
+      if (this._map!.style && this._map!.getSource("directions")) {
+        (this._map!.getSource("directions") as GeoJSONSource).setData(
+          geojson as any
+        );
       }
     });
   }
 
   _clickHandler() {
-    var timer = null;
-    var delay = 250;
-    return function(event) {
+    let timer: number | null;
+    const delay = 250;
+    return function(this: MapboxDirections, event: MouseEvent) {
       if (!timer) {
-        var singleClickHandler = this._onSingleClick.bind(this);
+        const singleClickHandler = this._onSingleClick.bind(this);
 
         timer = setTimeout(function() {
           singleClickHandler(event);
@@ -277,19 +333,24 @@ export default class MapboxDirections {
       } else {
         clearTimeout(timer);
         timer = null;
-        this._map.zoomIn();
+        this._map!.zoomIn();
       }
     };
   }
 
-  _onSingleClick(e) {
-    const { origin } = store.getState();
+  _onSingleClick(
+    e: MouseEvent & {
+      point: Point | [number, number];
+      lngLat: { lng: number; lat: number };
+    }
+  ) {
+    const { origin } = store.getState() as any;
     const coords = [e.lngLat.lng, e.lngLat.lat];
 
     if (!origin.geometry) {
       this.actions.setOriginFromCoordinates(coords);
     } else {
-      const features = this._map.queryRenderedFeatures(e.point, {
+      const features = this._map!.queryRenderedFeatures(e.point, {
         layers: [
           "directions-origin-point",
           "directions-destination-point",
@@ -306,13 +367,13 @@ export default class MapboxDirections {
           }
         });
 
-        if (features[0].properties.route === "alternate") {
-          const index = features[0].properties["route-index"];
+        if (features[0]!.properties!.route === "alternate") {
+          const index = features[0]!.properties!["route-index"];
           this.actions.setRouteIndex(index);
         }
       } else {
         this.actions.setDestinationFromCoordinates(coords);
-        this._map.flyTo({ center: coords });
+        this._map!.flyTo({ center: coords });
       }
     }
   }
@@ -320,7 +381,7 @@ export default class MapboxDirections {
   _move(e) {
     const { hoverMarker } = store.getState();
 
-    const features = this._map.queryRenderedFeatures(e.point, {
+    const features = this._map!.queryRenderedFeatures(e.point, {
       layers: [
         "directions-route-line-alt",
         "directions-route-line",
@@ -330,11 +391,11 @@ export default class MapboxDirections {
       ]
     });
 
-    this._map.getCanvas().style.cursor = features.length ? "pointer" : "";
+    this._map!.getCanvas().style.cursor = features.length ? "pointer" : "";
 
     if (features.length) {
       this.isCursorOverPoint = features[0];
-      this._map.dragPan.disable();
+      this._map!.dragPan.disable();
 
       // Add a possible waypoint marker when hovering over the active route line
       features.forEach(feature => {
@@ -346,20 +407,20 @@ export default class MapboxDirections {
       });
     } else if (this.isCursorOverPoint) {
       this.isCursorOverPoint = false;
-      this._map.dragPan.enable();
+      this._map!.dragPan.enable();
     }
   }
 
   _onDragDown() {
     if (!this.isCursorOverPoint) return;
     this.isDragging = this.isCursorOverPoint;
-    this._map.getCanvas().style.cursor = "grab";
+    this._map!.getCanvas().style.cursor = "grab";
 
-    this._map.on("mousemove", this.onDragMove);
-    this._map.on("mouseup", this.onDragUp);
+    this._map!.on("mousemove", this.onDragMove);
+    this._map!.on("mouseup", this.onDragUp);
 
-    this._map.on("touchmove", this.onDragMove);
-    this._map.on("touchend", this.onDragUp);
+    this._map!.on("touchmove", this.onDragMove);
+    this._map!.on("touchend", this.onDragUp);
   }
 
   _onDragMove(e) {
@@ -405,13 +466,13 @@ export default class MapboxDirections {
     }
 
     this.isDragging = false;
-    this._map.getCanvas().style.cursor = "";
+    this._map!.getCanvas().style.cursor = "";
 
-    this._map.off("touchmove", this.onDragMove);
-    this._map.off("touchend", this.onDragUp);
+    this._map!.off("touchmove", this.onDragMove);
+    this._map!.off("touchend", this.onDragUp);
 
-    this._map.off("mousemove", this.onDragMove);
-    this._map.off("mouseup", this.onDragUp);
+    this._map!.off("mousemove", this.onDragMove);
+    this._map!.off("mouseup", this.onDragUp);
   }
 
   // API Methods
@@ -424,19 +485,19 @@ export default class MapboxDirections {
    */
   interactive(state) {
     if (state) {
-      this._map.on("touchstart", this.move);
-      this._map.on("touchstart", this.onDragDown);
+      this._map!.on("touchstart", this.move);
+      this._map!.on("touchstart", this.onDragDown);
 
-      this._map.on("mousedown", this.onDragDown);
-      this._map.on("mousemove", this.move);
-      this._map.on("click", this.onClick);
+      this._map!.on("mousedown", this.onDragDown);
+      this._map!.on("mousemove", this.move);
+      this._map!.on("click", this.onClick);
     } else {
-      this._map.off("touchstart", this.move);
-      this._map.off("touchstart", this.onDragDown);
+      this._map!.off("touchstart", this.move);
+      this._map!.off("touchstart", this.onDragDown);
 
-      this._map.off("mousedown", this.onDragDown);
-      this._map.off("mousemove", this.move);
-      this._map.off("click", this.onClick);
+      this._map!.off("mousedown", this.onDragDown);
+      this._map!.off("mousemove", this.move);
+      this._map!.off("click", this.onClick);
     }
 
     return this;
