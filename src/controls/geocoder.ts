@@ -2,7 +2,7 @@
 
 import Typeahead from "suggestions";
 import debounce from "lodash.debounce";
-import { EventEmitter } from "events";
+import EventEmitter from "eventemitter3";
 import utils from "../utils";
 
 // Geocoder - this slightly mimicks the mapboxl-gl-geocoder but isn't an exact replica.

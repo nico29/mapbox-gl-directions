@@ -1,10 +1,10 @@
-import utils from '../utils';
-import template from 'lodash.template';
-import isEqual from 'lodash.isequal';
-
-let fs = require('fs'); // substack/brfs#39
-let instructionsTemplate = template(fs.readFileSync(__dirname + '/../templates/instructions.html', 'utf8'));
-let errorTemplate = template(fs.readFileSync(__dirname + '/../templates/error.html', 'utf8'));
+import utils from "../utils";
+import template from "lodash.template";
+import isEqual from "lodash.isequal";
+import { template as intructionTplt } from "../templates/instructions";
+import { template as errorTplt } from "../templates/error";
+let instructionsTemplate = template(intructionTplt);
+let errorTemplate = template(errorTplt);
 
 /**
  * Summary/Instructions controller
@@ -28,7 +28,13 @@ export default class Instructions {
   render() {
     this.store.subscribe(() => {
       const { hoverMarker, setRouteIndex } = this.actions;
-      const { routeIndex, unit, directions, error, compile } = this.store.getState();
+      const {
+        routeIndex,
+        unit,
+        directions,
+        error,
+        compile
+      } = this.store.getState();
       const shouldRender = !isEqual(directions[routeIndex], this.directions);
 
       if (error) {
@@ -37,12 +43,12 @@ export default class Instructions {
       }
 
       if (directions.length && shouldRender) {
-        const direction = this.directions = directions[routeIndex];
+        const direction = (this.directions = directions[routeIndex]);
 
         if (compile) {
           direction.legs.forEach(function(leg) {
             leg.steps.forEach(function(step) {
-              step.maneuver.instruction = compile('en', step);
+              step.maneuver.instruction = compile("en", step);
             });
           });
         }
@@ -56,21 +62,23 @@ export default class Instructions {
           distance: utils.format.duration(direction.duration)
         });
 
-        const steps = this.container.querySelectorAll('.mapbox-directions-step');
+        const steps = this.container.querySelectorAll(
+          ".mapbox-directions-step"
+        );
 
-        Array.prototype.forEach.call(steps, (el) => {
-          const lng = el.getAttribute('data-lng');
-          const lat = el.getAttribute('data-lat');
+        Array.prototype.forEach.call(steps, el => {
+          const lng = el.getAttribute("data-lng");
+          const lat = el.getAttribute("data-lat");
 
-          el.addEventListener('mouseover', () => {
+          el.addEventListener("mouseover", () => {
             hoverMarker([lng, lat]);
           });
 
-          el.addEventListener('mouseout', () => {
+          el.addEventListener("mouseout", () => {
             hoverMarker(null);
           });
 
-          el.addEventListener('click', () => {
+          el.addEventListener("click", () => {
             this._map.flyTo({
               center: [lng, lat],
               zoom: 16
@@ -79,11 +87,13 @@ export default class Instructions {
         });
 
         const routes = this.container.querySelectorAll('input[type="radio"]');
-        Array.prototype.forEach.call(routes, (el) => {
-          el.addEventListener('change', (e) => { setRouteIndex(parseInt(e.target.id, 10)); });
+        Array.prototype.forEach.call(routes, el => {
+          el.addEventListener("change", e => {
+            setRouteIndex(parseInt(e.target.id, 10));
+          });
         });
       } else if (this.container.innerHTML && shouldRender) {
-        this.container.innerHTML = '';
+        this.container.innerHTML = "";
       }
     });
   }

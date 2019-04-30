@@ -1,3 +1,4 @@
+export const template = `
 <div class="mapbox-directions-component mapbox-directions-inputs">
   <div class="mapbox-directions-component-keyline">
     <div class="mapbox-directions-origin">
@@ -43,3 +44,4 @@
   </div>
   <% } %>
 </div>
+`;

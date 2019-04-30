@@ -1,3 +1,4 @@
+export const template = `
 <div class="directions-control directions-control-directions">
   <div
     class="mapbox-directions-component mapbox-directions-route-summary<% if (routes > 1) { %> mapbox-directions-multiple<% } %>"
@@ -45,3 +46,4 @@
     </div>
   </div>
 </div>
+`;

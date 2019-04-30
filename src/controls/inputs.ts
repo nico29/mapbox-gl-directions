@@ -1,10 +1,9 @@
-import Geocoder from './geocoder';
-import template from 'lodash.template';
-import isEqual from 'lodash.isequal';
-import extent from 'turf-extent';
-
-let fs = require('fs'); // substack/brfs#39
-let tmpl = template(fs.readFileSync(__dirname + '/../templates/inputs.html', 'utf8'));
+import Geocoder from "./geocoder";
+import template from "lodash.template";
+import isEqual from "lodash.isequal";
+import extent from "turf-extent";
+import { template as inputsTemplate } from "../templates/inputs";
+let tmpl = template(inputsTemplate);
 
 /**
  * Inputs controller
@@ -17,7 +16,12 @@ let tmpl = template(fs.readFileSync(__dirname + '/../templates/inputs.html', 'ut
  */
 export default class Inputs {
   constructor(el, store, actions, map) {
-    const { originQuery, destinationQuery, profile, controls } = store.getState();
+    const {
+      originQuery,
+      destinationQuery,
+      profile,
+      controls
+    } = store.getState();
 
     el.innerHTML = tmpl({
       originQuery,
@@ -38,13 +42,14 @@ export default class Inputs {
   animateToCoordinates(mode, coords) {
     const { origin, destination } = this.store.getState();
 
-    if (origin.geometry &&
-        destination.geometry &&
-        !isEqual(origin.geometry, destination.geometry)) {
-
+    if (
+      origin.geometry &&
+      destination.geometry &&
+      !isEqual(origin.geometry, destination.geometry)
+    ) {
       // Animate map to fit bounds.
       const bb = extent({
-        type: 'FeatureCollection',
+        type: "FeatureCollection",
         features: [origin, destination]
       });
 
@@ -64,54 +69,80 @@ export default class Inputs {
       reverse
     } = this.actions;
 
-    const { geocoder, accessToken, flyTo, placeholderOrigin, placeholderDestination, zoom } = this.store.getState();
+    const {
+      geocoder,
+      accessToken,
+      flyTo,
+      placeholderOrigin,
+      placeholderDestination,
+      zoom
+    } = this.store.getState();
 
-    this.originInput = new Geocoder(Object.assign({}, {
-      accessToken
-    }, geocoder, {flyTo, placeholder: placeholderOrigin, zoom}));
+    this.originInput = new Geocoder(
+      Object.assign(
+        {},
+        {
+          accessToken
+        },
+        geocoder,
+        { flyTo, placeholder: placeholderOrigin, zoom }
+      )
+    );
 
     const originEl = this.originInput.onAdd(this._map);
-    const originContainerEl = this.container.querySelector('#mapbox-directions-origin-input');
+    const originContainerEl = this.container.querySelector(
+      "#mapbox-directions-origin-input"
+    );
     originContainerEl.appendChild(originEl);
 
-    this.destinationInput = new Geocoder(Object.assign({}, {
-      accessToken
-    }, geocoder, {flyTo, placeholder: placeholderDestination, zoom}));
+    this.destinationInput = new Geocoder(
+      Object.assign(
+        {},
+        {
+          accessToken
+        },
+        geocoder,
+        { flyTo, placeholder: placeholderDestination, zoom }
+      )
+    );
 
     const destinationEl = this.destinationInput.onAdd(this._map);
-    this.container.querySelector('#mapbox-directions-destination-input').appendChild(destinationEl);
+    this.container
+      .querySelector("#mapbox-directions-destination-input")
+      .appendChild(destinationEl);
 
-    this.originInput.on('result', (e) => {
+    this.originInput.on("result", e => {
       const coords = e.result.center;
       createOrigin(coords);
-      this.animateToCoordinates('origin', coords);
+      this.animateToCoordinates("origin", coords);
     });
 
-    this.originInput.on('clear', clearOrigin);
+    this.originInput.on("clear", clearOrigin);
 
-    this.destinationInput.on('result', (e) => {
+    this.destinationInput.on("result", e => {
       const coords = e.result.center;
       createDestination(coords);
-      this.animateToCoordinates('destination', coords);
+      this.animateToCoordinates("destination", coords);
     });
 
-    this.destinationInput.on('clear', clearDestination);
+    this.destinationInput.on("clear", clearDestination);
 
     // Driving / Walking / Cycling profiles
     const profiles = this.container.querySelectorAll('input[type="radio"]');
-    Array.prototype.forEach.call(profiles, (el) => {
-      el.addEventListener('change', () => {
+    Array.prototype.forEach.call(profiles, el => {
+      el.addEventListener("change", () => {
         setProfile(el.value);
       });
     });
 
     // Reversing Origin / Destination
     this.container
-      .querySelector('.js-reverse-inputs')
-      .addEventListener('click', () => {
+      .querySelector(".js-reverse-inputs")
+      .addEventListener("click", () => {
         const { origin, destination } = this.store.getState();
         if (origin) this.actions.queryDestination(origin.geometry.coordinates);
-        if (destination) this.actions.queryOrigin(destination.geometry.coordinates);
+        if (destination)
+          this.actions.queryOrigin(destination.geometry.coordinates);
         reverse();
       });
   }
@@ -137,13 +168,13 @@ export default class Inputs {
 
       if (originQueryCoordinates) {
         this.originInput.setInput(originQueryCoordinates);
-        this.animateToCoordinates('origin', originQueryCoordinates);
+        this.animateToCoordinates("origin", originQueryCoordinates);
         this.actions.queryOriginCoordinates(null);
       }
 
       if (destinationQueryCoordinates) {
         this.destinationInput.setInput(destinationQueryCoordinates);
-        this.animateToCoordinates('destination', destinationQueryCoordinates);
+        this.animateToCoordinates("destination", destinationQueryCoordinates);
         this.actions.queryDestinationCoordinates(null);
       }
     });
