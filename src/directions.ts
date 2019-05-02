@@ -48,6 +48,11 @@ export interface IMapboxDirectionsOptions {
   placeholderDestination?: string;
   flyTo?: boolean;
 }
+
+interface IMouseEvent extends MouseEvent {
+  point: Point | [number, number];
+  lngLat: { lng: number; lat: number };
+}
 /**
  * The Directions control
  * @class MapboxDirections
@@ -86,15 +91,15 @@ export interface IMapboxDirectionsOptions {
 export default class MapboxDirections {
   public actions: any;
   public onDragDown: () => void;
-  public onDragMove: (
-    event: MouseEvent & { lngLat: { lng: number; lat: number } }
-  ) => void;
+  public onDragMove: (event: IMouseEvent) => void;
   public onDragUp: () => void;
-  public move: (event: MouseEvent & { point: any }) => void;
-  public onClick: (event: MouseEvent) => void;
+  public move: (event: IMouseEvent) => void;
+  public onClick: (event: IMouseEvent) => void;
   private _map: Map | null;
   private container: HTMLElement;
   private storeUnsubscribe?: Unsubscribe;
+  private isCursorOverPoint?: any;
+  private isDragging?: any;
 
   constructor(public options: IMapboxDirectionsOptions) {
     this.actions = bindActionCreators(actions, store.dispatch);
@@ -322,7 +327,7 @@ export default class MapboxDirections {
   _clickHandler() {
     let timer: number | null;
     const delay = 250;
-    return function(this: MapboxDirections, event: MouseEvent) {
+    return function(this: MapboxDirections, event: IMouseEvent) {
       if (!timer) {
         const singleClickHandler = this._onSingleClick.bind(this);
 
@@ -338,19 +343,14 @@ export default class MapboxDirections {
     };
   }
 
-  _onSingleClick(
-    e: MouseEvent & {
-      point: Point | [number, number];
-      lngLat: { lng: number; lat: number };
-    }
-  ) {
+  _onSingleClick(event: IMouseEvent) {
     const { origin } = store.getState() as any;
-    const coords = [e.lngLat.lng, e.lngLat.lat];
+    const coords = [event.lngLat.lng, event.lngLat.lat];
 
     if (!origin.geometry) {
       this.actions.setOriginFromCoordinates(coords);
     } else {
-      const features = this._map!.queryRenderedFeatures(e.point, {
+      const features = this._map!.queryRenderedFeatures(event.point, {
         layers: [
           "directions-origin-point",
           "directions-destination-point",
@@ -373,15 +373,15 @@ export default class MapboxDirections {
         }
       } else {
         this.actions.setDestinationFromCoordinates(coords);
-        this._map!.flyTo({ center: coords });
+        this._map!.flyTo({ center: coords as [number, number] });
       }
     }
   }
 
-  _move(e) {
+  _move(event: IMouseEvent) {
     const { hoverMarker } = store.getState();
 
-    const features = this._map!.queryRenderedFeatures(e.point, {
+    const features = this._map!.queryRenderedFeatures(event.point, {
       layers: [
         "directions-route-line-alt",
         "directions-route-line",
@@ -400,8 +400,8 @@ export default class MapboxDirections {
       // Add a possible waypoint marker when hovering over the active route line
       features.forEach(feature => {
         if (feature.layer.id === "directions-route-line") {
-          this.actions.hoverMarker([e.lngLat.lng, e.lngLat.lat]);
-        } else if (hoverMarker.geometry) {
+          this.actions.hoverMarker([event.lngLat.lng, event.lngLat.lat]);
+        } else if ((hoverMarker as any).geometry) {
           this.actions.hoverMarker(null);
         }
       });
@@ -447,17 +447,19 @@ export default class MapboxDirections {
 
     switch (this.isDragging.layer.id) {
       case "directions-origin-point":
-        this.actions.setOriginFromCoordinates(origin.geometry.coordinates);
+        this.actions.setOriginFromCoordinates(
+          (origin as any).geometry.coordinates
+        );
         break;
       case "directions-destination-point":
         this.actions.setDestinationFromCoordinates(
-          destination.geometry.coordinates
+          (destination as any).geometry.coordinates
         );
         break;
       case "directions-hover-point":
         // Add waypoint if a sufficent amount of dragging has occurred.
         if (
-          hoverMarker.geometry &&
+          (hoverMarker as any).geometry &&
           !utils.coordinateMatch(this.isDragging, hoverMarker)
         ) {
           this.actions.addWaypoint(0, hoverMarker);
